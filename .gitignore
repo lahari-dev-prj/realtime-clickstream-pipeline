@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Spark
+spark_job/checkpoints/
+*.crc
+_SUCCESS
+
+# Docker / OS
+.DS_Store
+*.log
+
+# Env / secrets
+.env
+*.pem

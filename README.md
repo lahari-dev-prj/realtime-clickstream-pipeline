@@ -1,0 +1,83 @@
+# Real-Time Clickstream Pipeline
+
+A streaming data pipeline that ingests simulated e-commerce clickstream events,
+processes them in near real-time with windowed aggregations, and lands the
+results in a queryable analytics table — all running locally with Docker.
+
+## Architecture
+
+```
+ Python Producer          Kafka              Spark Structured Streaming        Postgres
+ (Faker-generated   -->   topic:       -->   - 5-min tumbling windows    -->   product_activity_5min
+  clickstream events)     clickstream-        - watermark for late data
+                           events             - event_count / unique_users
+                                               per (product_id, event_type)
+```
+
+**Why this design:**
+- **Kafka** decouples ingestion from processing — the producer doesn't care
+  who or what is consuming events, and multiple consumers could subscribe
+  to the same topic independently.
+- **Spark Structured Streaming** with `foreachBatch` gives exactly-once-ish
+  write semantics into Postgres while still expressing the aggregation
+  logic declaratively (`groupBy(window(...))` instead of hand-rolled
+  state management).
+- **Watermarking** (2 minutes) bounds how long the job waits for late
+  events before finalizing a window — a deliberate tradeoff between
+  result completeness and memory/latency. In a real system this threshold
+  would be tuned against observed event lateness.
+- **Tumbling 5-minute windows** keep the aggregation state bounded and the
+  output granularity useful for a "what's trending right now" dashboard.
+
+## Stack
+
+Kafka (Confluent images) · Spark 3.5 Structured Streaming · PostgreSQL 16 ·
+Python (kafka-python, Faker) · Docker Compose
+
+## Running it locally
+
+**Prerequisites:** Docker Desktop, Python 3.10+
+
+```bash
+# 1. Start the infrastructure
+docker compose up -d
+
+# 2. Install producer dependencies
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# 3. Start generating events (runs until Ctrl+C)
+python producer/produce_events.py --events-per-sec 20
+
+# 4. In another terminal, submit the Spark streaming job
+docker exec -it spark-master spark-submit \
+  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.3 \
+  /opt/spark-job/stream_processor.py
+
+# 5. Check results landing in Postgres
+python analysis/query_results.py
+```
+
+**UIs while running:**
+- Kafka UI: http://localhost:8080
+- Spark Master UI: http://localhost:8081
+
+## What this demonstrates
+
+- Designing a Kafka topic/partitioning strategy (partitioned by `product_id`
+  so all events for a product land on one partition, preserving order)
+- Structured Streaming windowed aggregation with watermarking for late data
+- Streaming-to-relational sink pattern via `foreachBatch`
+- Running a multi-service data stack with Docker Compose
+- Schema design for a streaming analytics sink table
+
+## Possible extensions
+
+- Swap the Postgres sink for a proper OLAP store (ClickHouse / BigQuery)
+- Add a Grafana dashboard reading from Postgres
+- Add schema registry (Avro/Protobuf) instead of raw JSON
+- Add dead-letter handling for malformed events
+
+## License
+
+MIT
