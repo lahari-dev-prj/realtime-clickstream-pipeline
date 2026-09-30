@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
@@ -56,29 +54,21 @@ services:
       - pg_data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  spark-master:
-    image: bitnami/spark:3.5
-    container_name: spark-master
-    environment:
-      - SPARK_MODE=master
-    ports:
-      - "8081:8080"
-      - "7077:7077"
-    volumes:
-      - ./spark_job:/opt/spark-job
-
-  spark-worker:
-    image: bitnami/spark:3.5
-    container_name: spark-worker
+  # Single Spark container running in local[*] mode -- sufficient for a
+  # single-node demo. A production deployment would instead run a standalone
+  # or YARN/Kubernetes cluster with separate master/worker nodes.
+  spark:
+    image: apache/spark:3.5.1
+    container_name: spark
+    user: root
+    command: ["tail", "-f", "/dev/null"]
     depends_on:
-      - spark-master
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_WORKER_CORES=2
+      - kafka
+      - postgres
     volumes:
       - ./spark_job:/opt/spark-job
+    ports:
+      - "4040:4040"
 
 volumes:
   pg_data:

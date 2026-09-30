@@ -49,9 +49,12 @@ pip install -r requirements.txt
 # 3. Start generating events (runs until Ctrl+C)
 python producer/produce_events.py --events-per-sec 20
 
-# 4. In another terminal, submit the Spark streaming job
-docker exec -it spark-master spark-submit \
-  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.3 \
+# 4. In another terminal, submit the Spark streaming job (runs in local[*] mode
+#    inside the spark container; production would instead target a standalone
+#    or YARN/Kubernetes cluster)
+docker exec -it spark /opt/spark/bin/spark-submit \
+  --master "local[*]" \
+  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.postgresql:postgresql:42.7.3 \
   /opt/spark-job/stream_processor.py
 
 # 5. Check results landing in Postgres
@@ -60,7 +63,7 @@ python analysis/query_results.py
 
 **UIs while running:**
 - Kafka UI: http://localhost:8080
-- Spark Master UI: http://localhost:8081
+- Spark job UI (while the job is running): http://localhost:4040
 
 ## What this demonstrates
 

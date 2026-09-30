@@ -5,10 +5,11 @@ Reads raw clickstream JSON events from Kafka, applies a watermark + 5-minute
 tumbling window aggregation (event count and unique users per product/event
 type), and writes each micro-batch to Postgres via foreachBatch (JDBC).
 
-Run inside the spark-master container, e.g.:
+Run inside the spark container (local[*] mode), e.g.:
 
-    docker exec -it spark-master spark-submit \
-        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.3 \
+    docker exec -it spark /opt/spark/bin/spark-submit \
+        --master "local[*]" \
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.postgresql:postgresql:42.7.3 \
         /opt/spark-job/stream_processor.py
 """
 from pyspark.sql import SparkSession
