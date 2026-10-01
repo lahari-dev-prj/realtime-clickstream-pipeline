@@ -49,7 +49,7 @@ services:
       POSTGRES_PASSWORD: de_pass
       POSTGRES_DB: clickstream
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql

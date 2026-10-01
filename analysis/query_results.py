@@ -10,7 +10,7 @@ import psycopg2
 
 conn = psycopg2.connect(
     host="localhost",
-    port=5432,
+    port=5433,
     dbname="clickstream",
     user="de_user",
     password="de_pass",
