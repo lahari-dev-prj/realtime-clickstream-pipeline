@@ -61,6 +61,19 @@ docker exec -it spark /opt/spark/bin/spark-submit \
 python analysis/query_results.py
 ```
 
+**Sample output** (`python analysis/query_results.py`, after letting the
+producer + Spark job run for a few minutes):
+
+```
+         window_start product_id   event_type  event_count  unique_users
+2025-06-01 14:35:00  PROD-00182    page_view           47            31
+2025-06-01 14:35:00  PROD-00041  add_to_cart           18            15
+2025-06-01 14:35:00  PROD-00182       search           12             9
+2025-06-01 14:30:00  PROD-00093    page_view           52            34
+2025-06-01 14:30:00  PROD-00041     purchase            6             6
+...
+```
+
 **UIs while running:**
 - Kafka UI: http://localhost:8080
 - Spark job UI (while the job is running): http://localhost:4040
@@ -73,6 +86,37 @@ python analysis/query_results.py
 - Streaming-to-relational sink pattern via `foreachBatch`
 - Running a multi-service data stack with Docker Compose
 - Schema design for a streaming analytics sink table
+
+## Troubleshooting
+
+**`psycopg2.OperationalError: role "de_user" does not exist`**
+
+This shows up if you already have a *native* Postgres installation running
+on your machine (common on macOS if you installed Postgres via Homebrew or
+Postgres.app at some point). Both the native instance and Docker's `postgres`
+container try to bind to port 5432 on `localhost`/`127.0.0.1`/`::1`, and
+whichever claimed the port first wins — so your Python client can silently
+connect to the *wrong* Postgres and get a "role does not exist" error because
+it's talking to an instance that was never initialized with `de_user`.
+
+Diagnose it with:
+```bash
+lsof -nP -i :5432 | grep LISTEN
+```
+If you see two different processes (e.g. a plain `postgres` process alongside
+Docker's `com.docke...`) both listening on 5432, that's the conflict.
+
+**Fix:** remap the Docker container to a different host port so it can't
+collide, e.g. in `docker-compose.yml`:
+```yaml
+postgres:
+  ports:
+    - "5433:5432"   # host:container — only the host side changes
+```
+Then update the host-side connection in `analysis/query_results.py`
+(`port=5433`). No change is needed inside `stream_processor.py` — Spark
+connects to Postgres over Docker's internal network (`postgres:5432`), which
+is unaffected by how the port is published to the host.
 
 ## Possible extensions
 
